@@ -1,0 +1,24 @@
+name: publish
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download, verify and release each set
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for tag in tools-v1 r2e-gym-v1; do
+            mkdir "$tag"
+            while read -r set file url; do
+              [[ "$set" == "$tag" ]] && curl -fsSL --retry 3 -o "$tag/$file" "$url"
+            done < urls.txt
+            cp "$tag.SHA256SUMS" "$tag/SHA256SUMS"
+            (cd "$tag" && sha256sum -c SHA256SUMS)
+            gh release create "$tag" "$tag"/* --title "$tag" --notes "Pinned benchmark files; see NOTICES.md for sources and licences. Check each download against SHA256SUMS."
+          done
